@@ -41,7 +41,7 @@ export default class EventSource {
 
     close() {
         clearInterval(this.intervalReset);
-        this.xhr.abort && this.xhr.abort();
+        this.xhr && this.xhr.abort && this.xhr.abort();
         this.xhr = null;
     }
 
