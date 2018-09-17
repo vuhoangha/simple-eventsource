@@ -7,12 +7,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vuhoangha/flatlist-fast.git"
+    "url": "git+https://github.com/vuhoangha/simple-eventsource"
   },
   "keywords": [],
   "author": "vuhoangha",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/vuhoangha/flatlist-fast/issues"
+    "url": "https://github.com/vuhoangha/simple-eventsource/issues"
   }
 }
