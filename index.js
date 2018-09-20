@@ -47,10 +47,16 @@ export default class EventSource {
                 const responseText = xhr.responseText || '';
                 const parts = responseText.split('\n');
 
-                for (let line of parts) {
+                for (const line of parts) {
                     // line = line.replace(reTrim, '');
-                    if (line.indexOf('data') === 0) {
-                        this.dicEvent.message({ data: line.replace(/data:?\s*/, '') });
+                    if (line.indexOf('data: {') === 0) {
+                        try {
+                            const obj = JSON.parse(line.replace(/data:?\s*/, ''));
+                            this.dicEvent.message(obj);
+                        } catch (error) {
+                            xhr._response = line;
+                            return;
+                        }
                     }
                 }
                 xhr._response = '';
