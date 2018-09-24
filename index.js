@@ -1,5 +1,3 @@
-const reTrim = /^(\s|\u00A0)+|(\s|\u00A0)+$/g;
-
 export default class EventSource {
     constructor(url, option = {}) {
         this.init = this.init.bind(this);
@@ -35,6 +33,10 @@ export default class EventSource {
         this.dicEvent.error(error);
     }
 
+    resetResponseXhr(xhr, txt = '') {
+        xhr._response = txt;
+    }
+
     init(onOpen) {
         const xhr = new XMLHttpRequest();
         let firstTime = true;
@@ -43,28 +45,40 @@ export default class EventSource {
         xhr.timeout = this.option.timeout || 50000;
 
         xhr.onreadystatechange = () => {
-            if (xhr.readyState === 3 || (xhr.readyState === 4 && xhr.status === 200)) {
-                const responseText = xhr.responseText || '';
-                const parts = responseText.split('\n');
+            if (xhr.readyState === 3) {
+                let responseText = xhr.responseText || '';
+                responseText = responseText.trim();
+                responseText = responseText.replace(/id:\s.*\n/g, '');
 
-                for (const line of parts) {
-                    // line = line.replace(reTrim, '');
-                    if (line.indexOf('data: {') === 0) {
+                const parts = responseText.split('\n');
+                const lastIndex = parts.length - 1;
+
+                for (let i = 0; i <= lastIndex; i++) {
+                    const line = parts[i];
+
+                    if (line.length === 0) continue;
+                    if (/^data:\s/.test(line)) {
                         try {
-                            const obj = JSON.parse(line.replace(/data:?\s*/, ''));
+                            const obj = JSON.parse(line.replace(/^data:\s*/, ''));
                             this.dicEvent.message(obj);
+                            continue;
                         } catch (error) {
-                            xhr._response = line;
-                            return;
+                            if (i === lastIndex) return this.resetResponseXhr(xhr, line);
                         }
                     }
+                    if (i !== lastIndex) continue;
+                    return line === ': hi' || /^id:\s/.test(line)
+                        ? this.resetResponseXhr(xhr)
+                        : this.resetResponseXhr(xhr, line);
                 }
-                xhr._response = '';
+                return this.resetResponseXhr(xhr);
             } else if (xhr.readyState === 2) {
                 if (firstTime) {
                     onOpen && onOpen(xhr);
                     firstTime = false;
                 }
+            } else if (xhr.readyState === 4 && xhr.status === 200) {
+                this.onError(xhr.responseText);
             }
         };
 
