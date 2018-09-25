@@ -1,22 +1,23 @@
-const TIMEOUT = 30000;
+const TIMEOUT = 60000;
 
 export default class EventSource {
     constructor(url, option = {}) {
         this.init = this.init.bind(this);
         this.close = this.close.bind(this);
         this.onError = this.onError.bind(this);
-        this.addEventListener = this.addEventListener.bind(this);
+        this.processMsg = this.processMsg.bind(this);
         this.controlTimeout = this.controlTimeout.bind(this);
+        this.addEventListener = this.addEventListener.bind(this);
 
         this.url = url;
-        this.option = option;
         this.xhr = null;
+        this.option = option;
+        this.intervalCheckAction = null;
         this.dicEvent = {
             message: () => { },
             open: () => { },
             error: () => { }
         };
-        this.intervalCheckAction = null;
 
         this.init(xhr => {
             this.xhr = xhr;
@@ -57,6 +58,37 @@ export default class EventSource {
         xhr._response = txt;
     }
 
+    processMsg(xhr) {
+        this.lastActionTime = new Date().getTime();
+
+        let responseText = xhr.responseText || '';
+        responseText = responseText.trim();
+        responseText = responseText.replace(/id:\s.*\n/g, '');
+
+        const parts = responseText.split('\n');
+        const lastIndex = parts.length - 1;
+
+        for (let i = 0; i <= lastIndex; i++) {
+            const line = parts[i];
+
+            if (line.length === 0) continue;
+            if (/^data:\s/.test(line)) {
+                try {
+                    const obj = JSON.parse(line.replace(/^data:\s*/, ''));
+                    this.dicEvent.message(obj);
+                    continue;
+                } catch (error) {
+                    if (i === lastIndex) return this.resetResponseXhr(xhr, line);
+                }
+            }
+            if (i !== lastIndex) continue;
+            return line === ': hi' || /^id:\s/.test(line)
+                ? this.resetResponseXhr(xhr)
+                : this.resetResponseXhr(xhr, line);
+        }
+        return this.resetResponseXhr(xhr);
+    }
+
     init(onOpen) {
         const xhr = new XMLHttpRequest();
         let firstTime = true;
@@ -65,39 +97,11 @@ export default class EventSource {
 
         xhr.onreadystatechange = () => {
             if (xhr.readyState === 3) {
-                this.lastActionTime = new Date().getTime();
-
-                let responseText = xhr.responseText || '';
-                responseText = responseText.trim();
-                responseText = responseText.replace(/id:\s.*\n/g, '');
-
-                const parts = responseText.split('\n');
-                const lastIndex = parts.length - 1;
-
-                for (let i = 0; i <= lastIndex; i++) {
-                    const line = parts[i];
-
-                    if (line.length === 0) continue;
-                    if (/^data:\s/.test(line)) {
-                        try {
-                            const obj = JSON.parse(line.replace(/^data:\s*/, ''));
-                            this.dicEvent.message(obj);
-                            continue;
-                        } catch (error) {
-                            if (i === lastIndex) return this.resetResponseXhr(xhr, line);
-                        }
-                    }
-                    if (i !== lastIndex) continue;
-                    return line === ': hi' || /^id:\s/.test(line)
-                        ? this.resetResponseXhr(xhr)
-                        : this.resetResponseXhr(xhr, line);
-                }
-                return this.resetResponseXhr(xhr);
+                this.processMsg(xhr);
             } else if (xhr.readyState === 2) {
-                if (firstTime) {
-                    onOpen && onOpen(xhr);
-                    firstTime = false;
-                }
+                if (!firstTime) return;
+                onOpen && onOpen(xhr);
+                firstTime = false;
             } else if (xhr.readyState === 4 && xhr.status === 200) {
                 this.onError(xhr.responseText);
             }
