@@ -1,9 +1,12 @@
+const TIMEOUT = 30000;
+
 export default class EventSource {
     constructor(url, option = {}) {
         this.init = this.init.bind(this);
         this.close = this.close.bind(this);
         this.onError = this.onError.bind(this);
         this.addEventListener = this.addEventListener.bind(this);
+        this.controlTimeout = this.controlTimeout.bind(this);
 
         this.url = url;
         this.option = option;
@@ -13,9 +16,11 @@ export default class EventSource {
             open: () => { },
             error: () => { }
         };
+        this.intervalCheckAction = null;
 
         this.init(xhr => {
             this.xhr = xhr;
+            this.controlTimeout();
             this.dicEvent.open();
         });
     }
@@ -27,10 +32,25 @@ export default class EventSource {
     close() {
         this.xhr && this.xhr.abort && this.xhr.abort();
         this.xhr = null;
+        this.intervalCheckAction && clearInterval(this.intervalCheckAction);
     }
 
     onError(error) {
         this.dicEvent.error(error);
+    }
+
+    controlTimeout() {
+        this.intervalCheckAction && clearInterval(this.intervalCheckAction);
+        this.lastActionTime = new Date().getTime();
+        this.intervalCheckAction = setInterval(() => {
+            const distance = new Date().getTime() - this.lastActionTime;
+            if (distance < TIMEOUT) return;
+            this.init(xhr => {
+                this.close();
+                this.xhr = xhr;
+                this.controlTimeout();
+            });
+        }, 3000);
     }
 
     resetResponseXhr(xhr, txt = '') {
@@ -42,10 +62,11 @@ export default class EventSource {
         let firstTime = true;
 
         xhr.open('GET', this.url, true);
-        xhr.timeout = this.option.timeout || 50000;
 
         xhr.onreadystatechange = () => {
             if (xhr.readyState === 3) {
+                this.lastActionTime = new Date().getTime();
+
                 let responseText = xhr.responseText || '';
                 responseText = responseText.trim();
                 responseText = responseText.replace(/id:\s.*\n/g, '');
