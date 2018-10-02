@@ -11,6 +11,7 @@ export default class EventSource {
 
         this.url = url;
         this.xhr = null;
+        this.resetingReq = false;
         this.option = option;
         this.intervalCheckAction = null;
         this.dicEvent = {
@@ -41,11 +42,13 @@ export default class EventSource {
     }
 
     controlTimeout() {
+        this.resetingReq = false;
         this.intervalCheckAction && clearInterval(this.intervalCheckAction);
         this.lastActionTime = new Date().getTime();
         this.intervalCheckAction = setInterval(() => {
             const distance = new Date().getTime() - this.lastActionTime;
-            if (distance < TIMEOUT) return;
+            if (distance < TIMEOUT || this.resetingReq) return;
+            this.resetingReq = true;
             this.init(xhr => {
                 this.close();
                 this.xhr = xhr;
