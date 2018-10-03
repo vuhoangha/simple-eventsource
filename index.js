@@ -67,13 +67,11 @@ export default class EventSource {
         let responseText = xhr.responseText || '';
         responseText = responseText.trim();
         responseText = responseText.replace(/id:\s.*\n/g, '');
-
         const parts = responseText.split('\n');
         const lastIndex = parts.length - 1;
 
         for (let i = 0; i <= lastIndex; i++) {
             const line = parts[i];
-
             if (line.length === 0) continue;
             if (/^data:\s/.test(line)) {
                 try {
@@ -97,26 +95,30 @@ export default class EventSource {
         let firstTime = true;
 
         xhr.open('GET', this.url, true);
-
         xhr.onreadystatechange = () => {
-            if (xhr.readyState === 3) {
-                this.processMsg(xhr);
-            } else if (xhr.readyState === 2) {
-                if (!firstTime) return;
-                onOpen && onOpen(xhr);
-                firstTime = false;
-            } else if (xhr.readyState === 4 && xhr.status === 200) {
-                this.onError(xhr.responseText);
+            switch (xhr.readyState) {
+                case 2:
+                    if (!firstTime) return;
+                    firstTime = false;
+                    onOpen && onOpen(xhr);
+                    break;
+                case 3:
+                    this.processMsg(xhr);
+                    break;
+                case 4:
+                    if (xhr.status !== 200) return;
+                    this.onError(xhr.responseText);
+                    break;
+                default:
+                    break;
             }
         };
 
         xhr.addEventListener('error', this.onError);
-
         this.option.headers && xhr.setRequestHeader('Authorization', this.option.headers.Authorization);
         xhr.setRequestHeader('Accept', 'text/event-stream');
         xhr.setRequestHeader('Cache-Control', 'no-cache');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
         xhr.send();
     }
 };
