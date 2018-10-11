@@ -76,6 +76,7 @@ export default class EventSource {
             if (/^data:\s/.test(line)) {
                 try {
                     const obj = JSON.parse(line.replace(/^data:\s*/, ''));
+                    if (obj.time && obj.type === 'ping') continue;
                     this.dicEvent.message(obj);
                     continue;
                 } catch (error) {
