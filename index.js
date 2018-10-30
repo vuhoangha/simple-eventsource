@@ -1,4 +1,4 @@
-const TIMEOUT = 60000;
+const TIMEOUT = 29000;
 
 export default class EventSource {
     constructor(url, option = {}) {
@@ -47,6 +47,7 @@ export default class EventSource {
         this.lastActionTime = new Date().getTime();
         this.intervalCheckAction = setInterval(() => {
             const distance = new Date().getTime() - this.lastActionTime;
+            console.log('url check: ', this.xhr._url);
             if (distance < TIMEOUT || this.resetingReq) return;
             this.resetingReq = true;
             this.init(xhr => {
@@ -84,7 +85,7 @@ export default class EventSource {
                 }
             }
             if (i !== lastIndex) continue;
-            return line === ': hi' || /^id:\s/.test(line)
+            return line === ': hi' || /^id:\s/.test(line) || /^retry:\s/.test(line)
                 ? this.resetResponseXhr(xhr)
                 : this.resetResponseXhr(xhr, line);
         }
